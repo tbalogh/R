@@ -7,6 +7,7 @@ rm(list=ls())
 
 R <- -0.04
 
+STATES <- 1:12
 DIRECTION <- list(NORTH=0,EAST=1,SOUTH=2,WEST=3)
 
 has_wall_north <- function(s) {  return(s %in% c( 1,   4,  7, 10, 6))  }
@@ -19,52 +20,119 @@ step_will_suceed <- function() {  return(runif(1) > 0.2)  }
 roll_norm <- function(dirs) { return(sample(dirs, size = 1)) }
 
 roll_direction <- function(a) {
-  if (a == DIRECTION$NORTH || a == DIRECTION$SOUTH) {
+  if (a == DIRECTION$NORTH || a == DIRECTION$SOUTH)
     return(roll_norm( c(DIRECTION$WEST, DIRECTION$EAST) ))
-  }
-  else {
+  else
     return(roll_norm( c(DIRECTION$NORTH, DIRECTION$SOUTH) ))
-  }
 }
+
 
 step <- function(s, a) {
   dir <- a
   # nem arra megyunk amerre terveztuk
   if (!step_will_suceed()) {
+    print(paste("STEP FAILED:", toString(s), toString(dir)))
     dir <- roll_direction(a)
   }
-  do_step(s, dir)
+  step_to_final_diretion(s, dir)
 }
 
-concrete_step <- function(s, can_step, ds) {
-  if(can_step(s)) return(list(ns=s, r=R)) else return(list(ns=s + ds, r=R))
-}
+
+concrete_step <- function(s, can_step, ds) { if(can_step(s)) return(list(ns = s, r = R)) else return(list(ns = s+ds, r = R)) }
 step_north <- function(s) { return(concrete_step(s, has_wall_north, -1))  }
 step_east  <- function(s) { return(concrete_step(s, has_wall_east,  +3))  }
 step_south <- function(s) { return(concrete_step(s, has_wall_south, +1))  }
 step_west  <- function(s) { return(concrete_step(s, has_wall_west,  -3))  }
 
-do_step <- function(s, a) {
+
+step_to_final_diretion <- function(s, a) {
   #mostantol csak a fel lehet akadaly, tehat akkor nem lepunk, minden esetben lepunk
-  if (a == DIRECTION$NORTH) {
-    return( step_north(s) )
-  }
-  else  if (a == DIRECTION$EAST) {
-    return( step_east(s) )
-  }
-  else if (a == DIRECTION$SOUTH) {
-    return( step_south(s) )
-  }
-  else {
-    return( step_east(s) )
-  }
+  if      (a == DIRECTION$NORTH) { return( step_north(s) ) }
+  else if (a == DIRECTION$EAST)  { return( step_east(s)  ) }
+  else if (a == DIRECTION$SOUTH) { return( step_south(s) ) }
+  else                           { return( step_west(s)  ) }
 }
 
+observe <- function(policy, step, startstate, count) {
+  o <- list(count=count, s=rep(0,count), a=rep(0,count), ns=rep(0,count), r=rep(0,count))
+  s <- startstate
+  for (i in 1:count) {
+    a <- policy[[s]]
+    res <- step(s, a)
+    o$s[i]  <- s
+    o$a[i]  <- a
+    o$ns[i] <- res$ns
+    o$r[i]  <- res$r
+    s <- res$ns
+  }
+  return(o)
+}
 
+# policy<-matrix(list(), nrow=1, ncol=12)
+# policy[1,] <- c(1, 0, 0, 1, -1, 3, 1, 0, 0, 3, 3, 3)
+# o <- observe(policy, step, startstate = 1, 100)
+# print(o)
+# 
+# 
+# policyIteration <- function(env, iterations) {
+#   policy <- array(1/env$actionCount,c(env$stateCount, env$actionCount))
+#   for (i in 1:iterations) {
+#     ret <- ADPagent(observe(policy, env, 1, 10000), policy)
+#     policy <- greedyPolicy(ret$U, ret$T_ssa, env$actionCount)
+#     policy <- epsilonGreedyPolicy(policy, 0.1)
+#   }
+#   return(policy)
+# }
+# 
+# 
+# greedyPolicy <- function(U, T_ssa, action_count) {
+#   policy <- array(0, c(nrow(U), action_count))
+#   for (s in 1:nrow(U)) {
+#     #Us <- sapply(1:2, FUN=function(a) {obs <- env$step(s,a); u <- U[obs$ns]}) #!!!!
+#     Us <- sapply( 1:2, FUN <- function(a) { T_ssa[s,,a] %*% U } )
+#     a_best <- which.max(Us)
+#     policy[s,a_best] <- 1
+#   }
+#   return(policy)
+# }
+# 
+# 
+# epsilonGreedyPolicy <- function(policy, epsilon) {
+#   p <- policy
+#   p[p==0] <- epsilon
+#   p[p==1] <- (1-epsilon)
+#   return(p)
+# }
 
+############
+# SIMULATION
+############
 
+simulate_step <- function(s, a) {
+  print(paste("STEP FROM:", toString(s), "DIR:", toString(a)))
+  res <- step(s, a)
+  s <- res$ns
+  print(paste("STEP RESULT:", toString(s)))
+  return(res)
+}
+
+simulate_steps <- function() {
+  s <- 3
+  simulate_count <- 100
+  for(i in 1:simulate_count) {
+    a <- sample(0:3, 1)
+    res <- simulate_step(s, a)
+    s <- res$ns
+    if (s == 10) { stop(paste("WIN in step:", toString(i))) } 
+    if (s == 11) { stop(paste("WIN in step:", toString(i))) }
+    Sys.sleep(0.1)
+  }
+}
+simulate_steps()
+
+############
 # TESTS
-#######
+############
 
 TEST_STATES <- 1:12
 WITH_NORTH_WALLS <- c( 1,   4,  7, 10, 6)
